@@ -39,7 +39,7 @@ class MainActivity: AppCompatActivity(){
         recorder = MediaRecorder().apply {
             setAudioSource(MediaRecorder.AudioSource.MIC)
             setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
-            setOutputFile("${externalMediaDirs}/audiorecord.3gp")
+            setOutputFile(fileName)
             setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
 
             try {
