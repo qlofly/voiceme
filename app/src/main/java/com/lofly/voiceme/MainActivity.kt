@@ -1,68 +1,90 @@
-package com.lofly.voiceme
+package  com.lofly.voiceme
 
-import android.annotation.SuppressLint
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
 import android.media.MediaRecorder
 import android.os.Bundle
-import android.os.Environment
+import android.os.PersistableBundle
 import android.util.Log
-import android.view.MotionEvent
-import android.widget.Toast
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.appcompat.app.AppCompatActivity
+import androidx.databinding.DataBindingUtil
 import com.lofly.voiceme.databinding.ActivityMainBinding
-import com.lofly.voiceme.ui.theme.VoicemeTheme
-import java.io.IOException
 
-class MainActivity : ComponentActivity() {
+private const val REQUEST_RECORD_AUDIO_PERMISSION = 200
+
+class MainActivity: AppCompatActivity(){
     private lateinit var binding: ActivityMainBinding
-    private lateinit var mediaRecorder: MediaRecorder
     private var fileName: String = ""
-    @SuppressLint("ClickableViewAccessibility")
+    private var recorder: MediaRecorder? = null
+
+    private var permissionToRecordAccepted = false
+    private var permission: Array<String> = arrayOf(Manifest.permission.RECORD_AUDIO)
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        permissionToRecordAccepted = if (requestCode == REQUEST_RECORD_AUDIO_PERMISSION){
+            grantResults[0] == PackageManager.PERMISSION_GRANTED
+        } else{
+            false
+        }
+        if (!permissionToRecordAccepted) finish()
+    }
+
+    private fun startRecording(){
+        recorder = MediaRecorder().apply {
+            setAudioSource(MediaRecorder.AudioSource.MIC)
+            setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
+            setOutputFile("${externalMediaDirs}/audiorecord.3gp")
+            setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
+
+            try {
+                prepare()
+                start()
+            } catch (e: Exception){
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun stopRecording(){
+        recorder?.apply{
+            try {
+                stop()
+                release()
+            } catch (e: Exception){
+                Log.d("STOP ERROR", e.message.toString())
+            }
+        }
+        recorder = null
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        binding.micButton.setOnTouchListener { _, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    startRecording()
-                }
-                MotionEvent.ACTION_UP -> {
-                    stopRecording()
-                }
+        fileName = "${externalMediaDirs}/audiorecord.3gp"
+
+        requestPermissions(permission, REQUEST_RECORD_AUDIO_PERMISSION)
+
+        binding.micButton.setOnClickListener{
+            if (recorder == null) {
+                startRecording()
+                binding.micButton.text = "STOP"
+            } else{
+                stopRecording()
+                binding.micButton.text = "START"
             }
-            false
-        }
-        fileName = Environment.getExternalStorageDirectory().absolutePath+"/recorded_audio.3gp"
-        mediaRecorder = MediaRecorder().apply() {
-            setAudioSource(MediaRecorder.AudioSource.VOICE_RECOGNITION)
-            setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
-            setOutputFile(fileName)
-            setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
-        }
-
-    }
-    private fun startRecording(){
-        try {
-            mediaRecorder.prepare()
-            mediaRecorder.start()
-        } catch (e: IOException){
-            Log.e("AUDIO_RECORDING", "prepare() failed")
         }
     }
-    private fun stopRecording(){
-        mediaRecorder.stop()
-        mediaRecorder.release()
-        mediaRecorder = MediaRecorder()
-        Toast.makeText(this, "Voice recording completed", Toast.LENGTH_SHORT).show()
+    override fun onStop(){
+        super.onStop()
+        recorder?.release()
+        recorder = null
     }
-
 }
